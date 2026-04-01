@@ -1,0 +1,176 @@
+name: Build and publish Docker image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: andrew-stclair/rtmp-to-rtsp-server
+
+jobs:
+  build-and-push:
+    name: Build & push (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      # Required for OIDC token (keyless Cosign signing)
+      id-token: write
+      # Required for attestation
+      attestations: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+          - linux/arm/v7
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── QEMU for cross-platform builds ───────────────────────────────────────
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # ── Buildx ───────────────────────────────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Login to GHCR (skip on forks / external PRs) ─────────────────────────
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Generate OCI-compliant image metadata / tags ──────────────────────────
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # semver tags:  v1.2.3 → 1.2.3, 1.2, 1, latest
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # branch push → edge
+            type=ref,event=branch,suffix=-edge,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            # PR builds (not pushed, just built): pr-42
+            type=ref,event=pr
+            # SHA suffix for traceability
+            type=sha,format=short
+
+      # ── Sanitise platform name for use as a cache/artifact key ───────────────
+      - name: Prepare platform slug
+        id: slug
+        run: |
+          SLUG="${{ matrix.platform }}"
+          SLUG="${SLUG//\//-}"   # linux/amd64 → linux-amd64
+          echo "value=${SLUG}" >> "$GITHUB_OUTPUT"
+
+      # ── Build (and push on non-PR events) ────────────────────────────────────
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Push a digest-only ref so we can merge into a manifest list later
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ github.event_name != 'pull_request' }}
+          cache-from: type=gha,scope=${{ steps.slug.outputs.value }}
+          cache-to:   type=gha,scope=${{ steps.slug.outputs.value }},mode=max
+          labels: ${{ steps.meta.outputs.labels }}
+          # Provenance attestation embedded in the image
+          provenance: mode=max
+          sbom: true
+
+      # ── Export the digest for the merge job ─────────────────────────────────
+      - name: Export digest
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p /tmp/digests
+          DIGEST="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - name: Upload digest artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ steps.slug.outputs.value }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Merge platform digests into a single multi-arch manifest ───────────────
+  merge-manifest:
+    name: Merge multi-arch manifest
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download all digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=branch,suffix=-edge,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+            type=sha,format=short
+
+      - name: Create and push manifest list
+        working-directory: /tmp/digests
+        run: |
+          # Build --amend flags from all downloaded digests
+          AMEND_FLAGS=$(printf -- '--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+          # Build --tag flags from metadata
+          TAG_FLAGS=$(jq -cr '.tags | map("--tag " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}')
+          # shellcheck disable=SC2086
+          docker buildx imagetools create $TAG_FLAGS $AMEND_FLAGS
+
+      - name: Inspect final manifest
+        run: |
+          docker buildx imagetools inspect \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}

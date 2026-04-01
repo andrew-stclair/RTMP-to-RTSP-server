@@ -1,0 +1,57 @@
+###############################################
+# mediamtx.yml — low-latency RTMP → RTSP relay
+###############################################
+
+# Log to stdout so Docker captures it
+logLevel: info
+logDestinations: [stdout]
+
+# ── API (used by the Python control plane) ──────────────────────────────────
+api: yes
+apiAddress: :9997
+
+# ── Metrics (Prometheus) ─────────────────────────────────────────────────────
+metrics: yes
+metricsAddress: :9998
+
+# ── RTSP server ──────────────────────────────────────────────────────────────
+rtsp: yes
+rtspAddress: :8554
+# Both UDP (lower latency on LAN) and TCP (reliable over WAN)
+rtspTransports: [udp, tcp]
+# Smaller write queue → less end-to-end buffering
+rtspWriteQueueSize: 128
+
+# ── RTMP server (ingest) ─────────────────────────────────────────────────────
+rtmp: yes
+rtmpAddress: :1935
+
+# Disable protocols we don't need to reduce attack surface
+rtmps: no
+rtsps: no
+hls: no
+webrtc: no
+srt: no
+
+# ── Path defaults ────────────────────────────────────────────────────────────
+pathDefaults:
+  # Record nothing by default
+  record: no
+
+  # Optional: call the Python auth webhook for publish/read events.
+  # The Python server listens on 127.0.0.1:8080.
+  # These are commented out; uncomment to enable auth.
+  #
+  # runOnPublish: >
+  #   curl -sf -X POST http://127.0.0.1:8080/on_publish
+  #   -d "path={{.Path}}&query={{.Query}}&sourceType={{.SourceType}}"
+  # runOnPublishRestart: no
+  # runOnRead: >
+  #   curl -sf -X POST http://127.0.0.1:8080/on_read
+  #   -d "path={{.Path}}&query={{.Query}}"
+  # runOnReadRestart: no
+
+# ── Named paths (add specific stream keys here if you want to restrict them) ─
+paths:
+  # Accept any stream key.  Remove "~^.*$" and list explicit names to lock down.
+  "~^.*$": {}
