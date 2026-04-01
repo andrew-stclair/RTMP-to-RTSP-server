@@ -163,12 +163,12 @@ jobs:
       - name: Create and push manifest list
         working-directory: /tmp/digests
         run: |
-          # Build --amend flags from all downloaded digests
-          AMEND_FLAGS=$(printf -- '--amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+          # Build source digest references (positional args)
+          SOURCES=$(printf -- '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
           # Build --tag flags from metadata
           TAG_FLAGS=$(jq -cr '.tags | map("--tag " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}')
           # shellcheck disable=SC2086
-          docker buildx imagetools create $TAG_FLAGS $AMEND_FLAGS
+          docker buildx imagetools create $TAG_FLAGS $SOURCES
 
       - name: Inspect final manifest
         run: |
