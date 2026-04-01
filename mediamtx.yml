@@ -6,6 +6,9 @@
 logLevel: info
 logDestinations: [stdout]
 
+# Smaller write queue → less end-to-end buffering
+writeQueueSize: 128
+
 # ── API (used by the Python control plane) ──────────────────────────────────
 api: yes
 apiAddress: :9997
@@ -19,8 +22,6 @@ rtsp: yes
 rtspAddress: :8554
 # Both UDP (lower latency on LAN) and TCP (reliable over WAN)
 rtspTransports: [udp, tcp]
-# Smaller write queue → less end-to-end buffering
-rtspWriteQueueSize: 128
 
 # ── RTMP server (ingest) ─────────────────────────────────────────────────────
 rtmp: yes
