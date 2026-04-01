@@ -32,7 +32,7 @@ RTSP clients (VLC, ffplay, cameras, …)
 ```
 
 **Why MediaMTX?**  
-Pure Python has no production RTMP server or RTSP server implementation suitable for 100+ clients. MediaMTX re-packetizes H.264 NAL units from RTMP/FLV directly into RTP without decoding, keeping CPU use at ~2-5 % on a modern i5 for 100 sessions.
+MediaMTX re-packetizes H.264 NAL units from RTMP/FLV directly into RTP without decoding, keeping CPU use at ~2-5 % on a modern i5 for 100 sessions.
 
 ## Quick start
 
