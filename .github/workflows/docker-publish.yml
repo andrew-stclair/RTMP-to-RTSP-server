@@ -159,6 +159,7 @@ jobs:
             type=semver,pattern={{major}}
             type=ref,event=branch,suffix=-edge,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
             type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
 
       - name: Create and push manifest list
         working-directory: /tmp/digests
