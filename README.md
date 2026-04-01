@@ -41,9 +41,10 @@ MediaMTX re-packetizes H.264 NAL units from RTMP/FLV directly into RTP without d
 ```bash
 docker run -d \
   --name rtmp-rtsp \
-  -p 1935:1935 \
-  -p 8554:8554 \
-  -p 8080:8080 \
+  -p 1935:1935/tcp \
+  -p 554:8554/tcp \
+  -p 554:8554/udp \
+  -p 8080:8080/tcp \
   --read-only \
   --tmpfs /tmp \
   ghcr.io/andrew-stclair/rtmp-to-rtsp-server:latest
@@ -69,9 +70,10 @@ services:
     tmpfs:
       - /tmp
     ports:
-      - "1935:1935"   # RTMP ingest
-      - "8554:8554"   # RTSP output
-      - "8080:8080"   # control plane (optional — don't expose publicly)
+      - "1935:1935/tcp"   # RTMP ingest
+      - "554:8554/tcp"   # RTSP output
+      - "554:8554/udp"   # RTSP output
+      - "8080:8080/tcp"   # control plane (optional — don't expose publicly)
     environment:
       API_TOKEN: "changeme"   # protect /streams and /clients endpoints
 ```
@@ -120,6 +122,6 @@ Uncomment the `runOnPublish` / `runOnRead` hooks in `mediamtx.yml` and add your 
 
 ```bash
 docker build -t rtmp-rtsp-server .
-docker run --rm -p 1935:1935 -p 8554:8554 -p 8080:8080 \
+docker run --rm -p 1935:1935/tcp -p 554:8554/tcp -p 554:8554/udp -p 8080:8080/tcp \
   --read-only --tmpfs /tmp rtmp-rtsp-server
 ```
