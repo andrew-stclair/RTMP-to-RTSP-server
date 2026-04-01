@@ -14,7 +14,7 @@ RUN apk add --no-cache curl tar
 RUN set -eux; \
     case "${TARGETARCH}" in \
       amd64)   ARCH="amd64" ;; \
-      arm64)   ARCH="arm64v8" ;; \
+      arm64)   ARCH="arm64" ;; \
       arm)     ARCH="armv7" ;; \
       *)       echo "Unsupported arch: ${TARGETARCH}"; exit 1 ;; \
     esac; \
