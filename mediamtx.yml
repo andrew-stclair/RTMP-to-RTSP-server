@@ -28,7 +28,6 @@ rtmp: yes
 rtmpAddress: :1935
 
 # Disable protocols we don't need to reduce attack surface
-rtsps: no
 hls: no
 webrtc: no
 srt: no
