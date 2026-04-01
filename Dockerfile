@@ -57,6 +57,7 @@ COPY --from=python-deps /opt/venv /opt/venv
 COPY --chown=appuser:appgroup server.py healthcheck.py /app/
 
 # ── Copy mediamtx config into a dedicated dir (mounted read-only) ─────────────
+RUN mkdir -p /etc/mediamtx && chmod 0755 /etc/mediamtx
 COPY --chown=root:root --chmod=0644 mediamtx.yml /etc/mediamtx/mediamtx.yml
 
 # ── Runtime directories that need to be writable ─────────────────────────────
