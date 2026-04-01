@@ -20,7 +20,7 @@ metricsAddress: :9998
 # ── RTSP server ──────────────────────────────────────────────────────────────
 rtsp: yes
 rtspAddress: :8554
-rtpAddress: :8554
+rtpAddress: :8000
 # Both UDP (lower latency on LAN) and TCP (reliable over WAN)
 rtspTransports: [udp, tcp]
 
