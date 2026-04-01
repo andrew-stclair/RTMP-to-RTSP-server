@@ -54,7 +54,7 @@ COPY --from=mediamtx-fetch --chown=root:root --chmod=0755 \
 COPY --from=python-deps /opt/venv /opt/venv
 
 # ── Copy application files ────────────────────────────────────────────────────
-COPY --chown=appuser:appgroup server.py /app/server.py
+COPY --chown=appuser:appgroup server.py healthcheck.py /app/
 
 # ── Copy mediamtx config into a dedicated dir (mounted read-only) ─────────────
 COPY --chown=root:appgroup --chmod=0640 mediamtx.yml /etc/mediamtx/mediamtx.yml
@@ -91,13 +91,6 @@ WORKDIR /app
 
 # ── Health check ──────────────────────────────────────────────────────────────
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-    CMD python - <<'EOF'
-import urllib.request, sys
-try:
-    urllib.request.urlopen("http://127.0.0.1:8080/healthz", timeout=4)
-    sys.exit(0)
-except Exception:
-    sys.exit(1)
-EOF
+    CMD python /app/healthcheck.py
 
 ENTRYPOINT ["python", "/app/server.py"]
