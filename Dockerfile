@@ -82,11 +82,13 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 # ── Ports ──────────────────────────────────────────────────────────────────────
 # 1935 — RTMP ingest
-# 8554 — RTSP output
+# 8554 — RTSP output (TCP)
+# 8000 — RTSP RTP (UDP)
+# 8001 — RTSP RTCP (UDP)
 # 8080 — Python control-plane HTTP
 # 9997 — mediamtx REST API (internal; only expose if needed)
 # 9998 — mediamtx Prometheus metrics (internal)
-EXPOSE 1935 8554 8080
+EXPOSE 1935 8554 8000/udp 8001/udp 8080
 
 WORKDIR /app
 

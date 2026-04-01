@@ -43,7 +43,8 @@ docker run -d \
   --name rtmp-rtsp \
   -p 1935:1935/tcp \
   -p 8554:8554/tcp \
-  -p 8554:8000/udp \
+  -p 8000:8000/udp \
+  -p 8001:8001/udp \
   -p 8080:8080/tcp \
   --read-only \
   --tmpfs /tmp \
@@ -71,8 +72,9 @@ services:
       - /tmp
     ports:
       - "1935:1935/tcp"   # RTMP ingest
-      - "8554:8554/tcp"   # RTSP output
-      - "8554:8000/udp"   # RTSP output
+      - "8554:8554/tcp"   # RTSP output (TCP)
+      - "8000:8000/udp"   # RTSP RTP (UDP)
+      - "8001:8001/udp"   # RTSP RTCP (UDP)
       - "8080:8080/tcp"   # control plane (optional — don't expose publicly)
     environment:
       API_TOKEN: "changeme"   # protect /streams and /clients endpoints
